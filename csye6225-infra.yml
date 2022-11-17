@@ -1,0 +1,753 @@
+AWSTemplateFormatVersion: 2010-09-09
+            
+Parameters:
+  VpcCIDR:
+    Description: Enter the IP range for this VPC
+    Type: String
+
+  PublicSubnet1CIDR:
+    Description: Enter the IP range Public Subnet 1
+    Type: String
+
+  PublicSubnet2CIDR:
+    Description: Enter the IP range Public Subnet 2
+    Type: String
+
+  PublicSubnet3CIDR:
+    Description: Enter the IP range Public Subnet 3
+    Type: String
+
+  PrivateSubnet1CIDR:
+    # Default: 10.0.2.0/24
+    Description: Enter the IP range  Private Subnet 1
+    Type: String
+
+  PrivateSubnet2CIDR:
+    # Default: 10.0.3.0/24
+    Description: Enter the IP range Private Subnet 2
+    Type: String
+
+  PrivateSubnet3CIDR:
+    # Default: 10.0.4.0/24
+    Description: Enter the IP range of Private Subnet 3
+    Type: String
+  
+  subnetavailabilityzones:
+   Description: Please enter the availabilty zones for the public subnets   
+   Type: CommaDelimitedList
+   Default: "us-east-1a, us-east-1b, us-east-1c"
+  
+  route:
+   Description: Please enter the route for the subnet associations
+   Type: String
+   Default: 0.0.0.0/0
+
+
+  # BucketName: { Type: String, Default: "my-unique-bucket-name-12120812" }
+
+  SSHLocation:
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 0.0.0.0/0
+    Description: The IP address range that can be used to access the web server using SSH.
+    MaxLength: '18'
+    MinLength: '9'
+    Type: String
+  
+  MyKeyPair:
+    Description: Please specify the KeyName
+    Type: AWS::EC2::KeyPair::KeyName
+  
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues: [t2.micro]
+    ConstraintDescription: must be a valid EC2 instance type.
+
+  AMIID:
+    Description: To give the latest Image ID
+    Type: AWS::EC2::Image::Id
+
+  BucketPrefix:
+   Description: Please specify the Bucket BucketPrefix
+   Type: String
+   Default: dev-rishi 
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: name
+          Value: test vpc 
+  myInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: name
+        Value: gateway test
+
+  InternetGatewayAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref myInternetGateway
+      VpcId: !Ref VPC
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - Key: name
+          Value: Public Subnet 1
+      VpcId: !Ref VPC
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - Key: name
+          Value: Public Subnet 2
+      VpcId: !Ref VPC
+
+  PublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet3CIDR
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - Key: name
+          Value: Public Subnet 2
+      VpcId: !Ref VPC
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet 1 | App Tier
+      VpcId: !Ref VPC      
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet 2 | App Tier
+      VpcId: !Ref VPC
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 2, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet3CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet 3 | Database Tier
+      VpcId: !Ref VPC
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      Tags: 
+        - Key: name
+          Value: Public Route Table 
+      VpcId: !Ref VPC
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      Tags: 
+        - Key: name
+          Value: Private Route Table 
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+       RouteTableId:
+         Ref: PublicRouteTable
+       DestinationCidrBlock: !Ref route
+       GatewayId: !Ref myInternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  PublicSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet3    
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet2
+
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet3
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22 and http access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: '0.0.0.0/0'
+
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: '0.0.0.0/0'
+
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: '0.0.0.0/0'
+
+        - IpProtocol: tcp
+          FromPort: 5000
+          ToPort: 5000
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref VPC
+
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Open database for access
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        SourceSecurityGroupId: !GetAtt InstanceSecurityGroup.GroupId
+
+  DBSubnetGroup:
+      Type: 'AWS::RDS::DBSubnetGroup'
+      Properties: 
+        DBSubnetGroupDescription: private subnet group for MySql DB 
+        DBSubnetGroupName: RDS Subnet Group
+        SubnetIds: 
+          - Ref: PrivateSubnet1
+          - Ref: PrivateSubnet2
+          - Ref: PrivateSubnet3
+
+  DBParameterGroup:
+    Type: 'AWS::RDS::DBParameterGroup'
+    Properties:
+      Description: Parameter Group of MySQL
+      Family: mysql8.0
+
+  MyDB:
+    Type: 'AWS::RDS::DBInstance'
+    DeletionPolicy: Delete
+    Properties:
+      MultiAZ: false
+      DBInstanceIdentifier: csye6225
+      DBName: csye6225
+      Port: 3306
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      Engine: MySQL
+      EngineVersion: 8.0
+      MasterUsername: csye6225root
+      MasterUserPassword: csye6225pwd
+      PubliclyAccessible: false
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      DBSubnetGroupName:
+        Ref: DBSubnetGroup
+      DBParameterGroupName:
+        Ref: DBParameterGroup
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      IamInstanceProfile: !Ref myIAMInstanceProfile
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref MyKeyPair
+      ImageId: !Ref AMIID
+      NetworkInterfaces: 
+      - AssociatePublicIpAddress: "true"
+        DeviceIndex: "0"
+        GroupSet: 
+          - Ref: "InstanceSecurityGroup"
+        SubnetId: 
+          Ref: "PublicSubnet1"   
+      UserData:
+        Fn::Base64: 
+            !Sub |
+            #!/bin/bash
+            echo "{\"db_host\":\"${MyDB.Endpoint.Address}\",\"db_user\":\"csye6225root\",\"db_password\":\"csye6225pwd\",\"default_database\":\"csye6225\",\"db_port\":3306,\"s3_bucket\":\"${S3Bucket}\"}" > /home/ubuntu/dbconfig.json
+
+  myDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: "Z02366482Y266U940QI5X"
+      Comment: DNS of my instance
+      Name: "demo.rishi-csye6225.me"
+      Type: A
+      TTL: 60
+      ResourceRecords:
+        - !GetAtt EC2Instance.PublicIp
+
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Join
+        - "."
+        - - !Select
+            - 0
+            - !Split
+              - "-"
+              - !Select
+                - 2
+                - !Split
+                  - "/"
+                  - !Ref "AWS::StackId"
+          - Ref: "BucketPrefix"
+          - "rishi.csye6225.me"
+
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled                     
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: Rule for log prefix
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: STANDARD_IA
+            ExpirationInDays: 365
+
+  WebAppS3Policy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: WebAppS3
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+            - Effect: Allow
+              Action:
+                - 'S3:ListAllMyBuckets' 
+                - 's3:GetObject'
+                - 's3:PutObject'
+                - 's3:DeleteObjectVersion'
+              Resource:
+                  - !Sub arn:aws:s3:::${S3Bucket}
+                  - !Sub arn:aws:s3:::${S3Bucket}/*
+      Roles:
+                  - !Ref IAMRole
+
+  CloudWatchAgentPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: "EC2CloudWatchPolicy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'cloudwatch:PutMetricData'
+              - 'ec2:DescribeTags'
+              - 'logs:PutLogEvents'
+              - 'logs:DescribeLogStreams'
+              - 'logs:DescribeLogGroups'
+              - 'logs:CreateLogStream'
+              - 'logs:CreateLogGroup'
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - 'ssm:GetParameter'
+              - 'ssm:PutParameter'
+            Resource: "arn:aws:ssm:*:*:parameter/AmazonCloudWatch-*"
+      Roles:
+                  - !Ref IAMRole
+
+  GHEC2AMI:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: "gh-ec2-ami"
+      PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Action:
+              - ec2:AttachVolume
+              - ec2:AuthorizeSecurityGroupIngress
+              - ec2:CopyImage
+              - ec2:CreateImage
+              - ec2:CreateKeypair
+              - ec2:CreateSecurityGroup
+              - ec2:CreateSnapshot
+              - ec2:CreateTags
+              - ec2:CreateVolume
+              - ec2:DeleteKeyPair
+              - ec2:DeleteSecurityGroup
+              - ec2:DeleteSnapshot
+              - ec2:DeleteVolume
+              - ec2:DeregisterImage
+              - ec2:DescribeImageAttribute
+              - ec2:DescribeImages
+              - ec2:DescribeInstances
+              - ec2:DescribeInstanceStatus
+              - ec2:DescribeRegions
+              - ec2:DescribeSecurityGroups
+              - ec2:DescribeSnapshots
+              - ec2:DescribeSubnets
+              - ec2:DescribeTags
+              - ec2:DescribeVolumes
+              - ec2:DetachVolume
+              - ec2:GetPasswordData
+              - ec2:ModifyImageAttribute
+              - ec2:ModifyInstanceAttribute
+              - ec2:ModifySnapshotAttribute
+              - ec2:RegisterImage
+              - ec2:RunInstances
+              - ec2:StopInstances
+              - ec2:TerminateInstances
+            Resource:
+              - '*'      
+      # Users:
+      #     - ghactions-app
+      Roles: 
+        - Ref: IAMRole
+
+  IAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: EC2-CSYE6225 
+      AssumeRolePolicyDocument: 
+        Statement: 
+          - Effect: Allow
+            Principal: 
+              Service: 
+                - ec2.amazonaws.com
+            Action: 
+              - 'sts:AssumeRole'
+      Path: /
+
+  myIAMInstanceProfile: 
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties: 
+      Path: /
+      Roles: 
+        - Ref: IAMRole
+
+  CodeDeployServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CodeDeployServiceRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codedeploy.amazonaws.com
+            Action: 
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole
+      Path: "/"
+
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ComputePlatform: Server
+      ApplicationName: csye6225webapp
+
+  CodeDeployDeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    DependsOn: CodeDeployApplication 
+    Properties:
+      DeploymentGroupName: csye6225-webapp-deployment
+      ApplicationName: !Ref CodeDeployApplication
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
+      DeploymentStyle:
+        DeploymentType: IN_PLACE
+        DeploymentOption: WITHOUT_TRAFFIC_CONTROL
+      DeploymentConfigName: CodeDeployDefault.AllAtOnce
+      AutoRollbackConfiguration:
+        Enabled: 'true'
+        Events: 
+          - DEPLOYMENT_FAILURE
+      Ec2TagFilters:
+        - Key: Name
+          Value: FlaskAppASG
+          Type: KEY_AND_VALUE
+
+  SNSservice:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: verify_email
+      Subscription:
+      - Endpoint: !GetAtt LambdaFunction.Arn
+        Protocol: lambda
+      TopicName: verify_email
+  SNStopicpolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2008-10-17'
+        Id: __default_policy_ID
+        Statement:
+        - Sid: __default_statement_ID
+          Effect: Allow
+          Principal:
+            AWS: "*"
+          Action:
+          - SNS:Publish
+          - SNS:DeleteTopic
+          - SNS:ListSubscriptionsByTopic
+          - SNS:GetTopicAttributes
+          - SNS:Receive
+          - SNS:AddPermission
+          - SNS:Subscribe
+          Resource:
+            Ref: SNSservice
+          Condition:
+            StringEquals:
+              AWS:SourceOwner: !Ref AWS::AccountId
+        - Sid: __console_pub_0
+          Effect: Allow
+          Principal:
+            AWS: "*"
+          Action: SNS:Publish
+          Resource:
+            Ref: SNSservice
+        - Sid: __console_sub_0
+          Effect: Allow
+          Principal:
+            AWS: "*"
+          Action:
+          - SNS:Subscribe
+          - SNS:Receive
+          Resource:
+            Ref: SNSservice
+      Topics:
+      - Ref: SNSservice
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn:
+        Ref: SNSservice
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Description: Store token in dynamodb and send email to SNS
+    Properties:
+      FunctionName: verifyEmail
+      Role:
+        Fn::Join:
+        - ''
+        - - 'arn:aws:iam::'
+          - !Ref AWS::AccountId
+          - ":role/"
+          - !Ref LambdaRole
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Code:
+        ZipFile: |
+            import json
+            import boto3
+            def sendemail(email,token):
+                          # TODO implement 
+                          user = email
+                          email = [email]
+
+                          ses = boto3.client("ses")
+                          try:
+
+                              response = ses.send_email(
+                                  Source = "Admin@demo.rishi-csye6225.me",
+                                  Destination={
+                                      'ToAddresses': email
+                                  },
+                                  Message={
+                                      'Subject': {
+                                          'Data': "Account Verification Email"
+                                      },
+                                      'Body': {
+                                          'Text': {
+                                              'Data': "Please click on the link to verify your account. \n   http://demo.rishi-csye6225.me/v1/verifyUserEmail?Email={0:}&Token={1:}".format(user,token)
+                                          }
+                                      }
+                                  }
+                              )
+                              print("Success")
+
+                          except Exception as e:
+                              print(e)
+            def lambda_handler(event, context):        
+                          message= event['Records'][0]['Sns']['Message']
+                          attributes = event['Records'][0]['Sns']['MessageAttributes']
+                          Token = event['Records'][0]['Sns']['MessageAttributes']['Token']['Value']
+                          Email = event['Records'][0]['Sns']['MessageAttributes']['Email']['Value']
+                          print(message)
+                          print(attributes)
+                          sendemail(Email,Token)
+                          return {
+                              'message' : message,
+                              'attributes':attributes,
+                              'Email' : Email
+                          }
+      Description: Function to store token in dynamodb and send email to SNS
+  DynamodbTablePro:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - 
+          AttributeName: "Email"
+          AttributeType: "S"
+        - 
+          AttributeName: "TokenName"
+          AttributeType: "S"
+      KeySchema:
+        - 
+          AttributeName: "Email"
+          KeyType: "HASH"
+        -
+          AttributeName: "TokenName"
+          KeyType: "RANGE"
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TableName: csye6225Pro2
+      TimeToLiveSpecification:
+        AttributeName: TimeToLive
+        Enabled: true
+      Tags:
+        - Key: key
+          Value: value
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: "LambdaFunctionRole"
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+                - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSESFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess 
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  DynamoDBPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DynamoPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'dynamodb:List*'
+              - 'dynamodb:DescribeReservedCapacity*'
+              - 'dynamodb:DescribeLimits'
+              - 'dynamodb:DescribeTimeToLive'
+            Resource: 
+              - '*'
+          - Effect: Allow
+            Action:
+              - 'dynamodb:PutItem'
+              - 'dynamodb:DescribeTable'
+              - 'dynamodb:Get*'
+              - 'dynamodb:Query'
+              - 'dynamodb:Scan'
+              - 'dynamodb:Delete*'
+              - 'dynamodb:CreateTable'
+              - 'dynamodb:Update*'
+              - 'dynamodb:BatchWrite*'
+              - 'dynamodb:DescribeStream'
+              - 'dynamodb:BatchGet*'
+            Resource:
+              - !GetAtt DynamodbTablePro.Arn
+      Roles:
+        - !Ref IAMRole
+
+Outputs:
+  VPC:
+    Description: VPC ID
+    Export:
+      Name: !Sub ${AWS::StackName}-VPC
+    Value: !Ref VPC
+
+# Export Public Subnet 1 
+  PublicSubnet1:
+    Description: Public Subnet 1 ID
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnet1
+    Value: !Ref PublicSubnet1
+
+# Export Public Subnet 2
+  PublicSubnet2:
+    Description: Public Subnet 2 ID
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnet2
+    Value: !Ref PublicSubnet2
+
+  PublicSubnet3:
+    Description: Public Subnet 2 ID
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnet3
+    Value: !Ref PublicSubnet3
+
+
+ 
