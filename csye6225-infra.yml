@@ -602,7 +602,7 @@ Resources:
         ZipFile: |
             import json
             import boto3
-            def sendemail(email,token):
+            def send_email(email,token):
                           # TODO implement 
                           user = email
                           email = [email]
@@ -617,11 +617,11 @@ Resources:
                                   },
                                   Message={
                                       'Subject': {
-                                          'Data': "Account Verification Email"
+                                          'Data': "verify the email"
                                       },
                                       'Body': {
                                           'Text': {
-                                              'Data': "Please click on the link to verify your account. \n   http://demo.rishi-csye6225.me/v1/verifyUserEmail?Email={0:}&Token={1:}".format(user,token)
+                                              'Data': "click the link to verify \n   http://demo.rishi-csye6225.me/v1/verifyUserEmail?Email={0:}&Token={1:}".format(user,token)
                                           }
                                       }
                                   }
@@ -637,7 +637,7 @@ Resources:
                           Email = event['Records'][0]['Sns']['MessageAttributes']['Email']['Value']
                           print(message)
                           print(attributes)
-                          sendemail(Email,Token)
+                          send_email(Email,Token)
                           return {
                               'message' : message,
                               'attributes':attributes,
