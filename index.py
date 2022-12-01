@@ -19,7 +19,7 @@ def send_email(email,token):
                             },
                             'Body': {
                                 'Text': {
-                                    'Data': "click the link to verify \n   https://demo.rishi-csye6225.me/v1/verifyUserEmail?Email={0:}&Token={1:}".format(user,token)
+                                    'Data': "click on the link to verify \n   https://demo.rishi-csye6225.me/v1/verifyUserEmail?Email={0:}&Token={1:}".format(user,token)
                                 }
                             }
                         }
