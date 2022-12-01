@@ -38,7 +38,7 @@ jobs:
           aws-region: us-east-1
       - name: Copying artifact to S3
         run: |
-           aws s3 cp ./index.zip s3://deploy.serverless.pro/
+           aws s3 cp ./index.zip s3://04dfbd00.dev-rishi.rishi.csye6225.me/
       - name: Lambda Update
         run: |
-          aws lambda update-function-code --function-name verifyEmail --s3-bucket deploy.serverless.pro --s3-key index.zip
+          aws lambda update-function-code --function-name verifyEmail --s3-bucket 04dfbd00.dev-rishi.rishi.csye6225.me --s3-key index.zip
